@@ -19,9 +19,10 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install dependencies (Manuel)
+      - name: Install dependencies (FORCE UPDATE)
+        # Buradaki -U parametresi kütüphaneleri en son sürüme zorlar
         run: |
-          pip install yfinance pandas numpy requests google-generativeai
+          pip install -U yfinance pandas numpy requests google-generativeai
 
       - name: Run Cloud Hunter V5
         env:
