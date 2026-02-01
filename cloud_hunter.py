@@ -4,7 +4,7 @@ import numpy as np
 import requests
 import time
 import os
-import google.generativeai as genai
+import json
 
 # ==============================================================================
 # AYARLAR
@@ -226,14 +226,10 @@ def analyze_stock(symbol, tf):
         return None
 
 # ==============================================================================
-# İLETİŞİM MOTORU (DEBUG MODLU)
+# İLETİŞİM MOTORU (DIRECT REST API - NO LIBRARY)
 # ==============================================================================
 
 def get_gemini_summary(signals):
-    """
-    Gemini çalışırsa yorum yapar, çalışmazsa HAM RAPORU düzgün formatlayıp döner.
-    AYRICA: Hata anında loglara hangi modellerin erişilebilir olduğunu yazar.
-    """
     fallback_msg = "🤖 *OTOMATİK TEKNİK RAPOR*\n(Yapay Zeka Servisine Ulaşılamadı, Ham Veri Aşağıdadır)\n\n"
     for s in signals:
         icon = "⚡" if "Cross" in s['lb_status'] else "🔥"
@@ -244,13 +240,12 @@ def get_gemini_summary(signals):
     if not GEMINI_API_KEY: 
         return fallback_msg
     
+    # --- YENİ BÖLÜM: REST API ÇAĞRISI (KÜTÜPHANESİZ) ---
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
+        # Doğrudan Google API URL'ine gidiyoruz. Versiyon derdi yok.
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         
-        # Modeli seçiyoruz. Eğer kütüphane eskiyse burası patlayabilir.
-        model = genai.GenerativeModel('gemini-1.5-flash') 
-        
-        prompt = f"""
+        prompt_text = f"""
         Sen 'TrendHunter' adında borsa asistanısın. Kullanıcıya 'Başkan' de.
         Aşağıda yakalanan YENİ sinyaller var.
         
@@ -263,20 +258,28 @@ def get_gemini_summary(signals):
         Sinyaller:
         {signals}
         """
-        response = model.generate_content(prompt)
-        return response.text
         
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt_text}]
+            }]
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        
+        if response.status_code == 200:
+            result = response.json()
+            # JSON'dan cevabı ayıklama
+            return result['candidates'][0]['content']['parts'][0]['text']
+        else:
+            print(f"Gemini API Hata Kodu: {response.status_code}")
+            print(f"Hata Detayı: {response.text}")
+            return fallback_msg + f"\n(API Hatası: {response.status_code})"
+
     except Exception as e:
-        print(f"Gemini Kritik Hata: {e}")
-        # Hata aldık, peki hangi modeller var? Loga yazalım ki bilelim.
-        try:
-            print("--- ERİŞİLEBİLİR MODELLER LİSTESİ ---")
-            for m in genai.list_models():
-                print(m.name)
-            print("-------------------------------------")
-        except:
-            print("Model listesi de alınamadı.")
-            
+        print(f"Gemini Bağlantı Hatası: {e}")
         return fallback_msg
 
 def send_pushover(message):
@@ -309,11 +312,8 @@ def send_pushover(message):
             print(f"Pushover Gönderim Hatası: {e}")
 
 if __name__ == "__main__":
-    print("🚀 CLOUD HUNTER V6.1 (DEBUG MODE) BAŞLATILIYOR...")
+    print("🚀 CLOUD HUNTER V7 (DIRECT API) BAŞLATILIYOR...")
     
-    # Versiyonu kontrol edelim (Logda görmek için)
-    print(f"Google Generative AI Version: {genai.__version__}")
-
     all_signals = []
     
     for tf in WATCH_TIMEFRAMES:
