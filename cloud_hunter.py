@@ -233,7 +233,7 @@ def get_gemini_summary(signals):
     if not GEMINI_API_KEY: return "Gemini API Key eksik."
     
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
     Sen 'TrendHunter' adında borsa asistanısın. Kullanıcıya 'Başkan' de.
