@@ -19,14 +19,13 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install dependencies (NUCLEAR OPTION)
-        # --no-cache-dir: GitHub'ın eski dosyaları kullanmasını yasaklar.
-        # --upgrade: En son sürümü zorlar.
-        # python -m pip: Python'un doğru pip'ini kullandığımızı garanti eder.
+      - name: Install dependencies (CLEAN & FAST)
+        # Artık Google kütüphanesine (google-generativeai) ihtiyacımız yok!
+        # Sadece temel finans ve web istek araçlarını kuruyoruz.
         run: |
-          python -m pip install --upgrade --no-cache-dir "google-generativeai>=0.7.2" yfinance pandas numpy requests
+          pip install yfinance pandas numpy requests
 
-      - name: Run Cloud Hunter V6.1
+      - name: Run Cloud Hunter V7
         env:
           PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
           PUSHOVER_API_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
