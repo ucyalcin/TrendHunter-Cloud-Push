@@ -7,13 +7,12 @@ import os
 import google.generativeai as genai
 
 # ==============================================================================
-# AYARLAR (GITHUB SECRETS'TEN GELECEK)
+# AYARLAR
 # ==============================================================================
 PUSHOVER_USER_KEY = os.environ.get("PUSHOVER_USER_KEY")
 PUSHOVER_API_TOKEN = os.environ.get("PUSHOVER_API_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# TARANACAK ZAMAN DİLİMLERİ
 WATCH_TIMEFRAMES = ["1h", "4h"] 
 
 # GÖSTERGE AYARLARI
@@ -23,11 +22,9 @@ ST_FACTOR = 3.0
 ADX_LEN = 14
 LAZY_MA = 34
 LAZY_SIG = 9
-
-# KRİTİK AYAR: Sinyal Tazeliği
 FRESHNESS = 3 
 
-# GALAXY LIST (SADECE ABD HİSSELERİ)
+# GALAXY LIST (SADECE ABD)
 TARGET_SYMBOLS = [
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "AMD", "AVGO", "NFLX",
     "INTC", "QCOM", "CSCO", "DELL", "APP", "TSM", "BIDU", "BABA", "PLTR", "CRWD",
@@ -116,7 +113,6 @@ def calculate_lazybear_macd(df, len_ma, len_sig):
     impulse_signal = calculate_smma(impulse_macd, len_sig)
     df['LB_Macd'] = impulse_macd
     df['LB_Signal'] = impulse_signal
-    # Görsel için kesişim tespiti
     df['LB_Cross'] = (df['LB_Macd'] > df['LB_Signal']) & (df['LB_Macd'].shift(1) < df['LB_Signal'].shift(1))
     return df
 
@@ -230,7 +226,7 @@ def analyze_stock(symbol, tf):
         return None
 
 # ==============================================================================
-# İLETİŞİM MOTORU (PUSHOVER + GEMINI)
+# İLETİŞİM MOTORU
 # ==============================================================================
 
 def get_gemini_summary(signals):
@@ -246,6 +242,7 @@ def get_gemini_summary(signals):
     Görevlerin:
     1. Hisseleri gruplayarak listele.
     2. Her hisse için: Fiyatın DEMA (200) seviyesine göre konumunu yorumla. 
+       (Fiyat > DEMA ise 'Güvenli Bölge', Fiyat < DEMA ise 'Riskli/Tepki' gibi).
     3. LazyBear durumu 'LB Cross' ise momentumun da desteklediğini belirt.
     4. Türkçe konuş, emojiler kullan.
     
@@ -269,8 +266,8 @@ def send_pushover(message):
         "user": PUSHOVER_USER_KEY,
         "message": message,
         "title": "🚀 TREND HUNTER ALARM",
-        "sound": "cashregister", # 'cashregister', 'cosmic', 'siren' gibi sesler seçilebilir
-        "priority": 1 # 1: Yüksek Öncelik (Sessizde olsa bile öter)
+        "sound": "cashregister", 
+        "priority": 1 
     }
     
     try:
@@ -279,12 +276,8 @@ def send_pushover(message):
     except Exception as e:
         print(f"Pushover Gönderim Hatası: {e}")
 
-# ==============================================================================
-# MAIN
-# ==============================================================================
-
 if __name__ == "__main__":
-    print("🚀 CLOUD HUNTER V5 (PUSHOVER) BAŞLATILIYOR...")
+    print("🚀 CLOUD HUNTER V5 BAŞLATILIYOR...")
     all_signals = []
     
     for tf in WATCH_TIMEFRAMES:
@@ -299,9 +292,6 @@ if __name__ == "__main__":
     if all_signals:
         print(f"🎉 Sinyal bulundu. Raporlanıyor...")
         ai_msg = get_gemini_summary(all_signals)
-        
-        # Pushover mesaj sınırı (1024 karakter) olduğu için bazen bölmek gerekebilir.
-        # Ama şimdilik tek parça deniyoruz.
         send_pushover(ai_msg)
     else:
         print("Sinyal yok.")
