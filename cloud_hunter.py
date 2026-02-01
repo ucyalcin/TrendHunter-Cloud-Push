@@ -226,26 +226,29 @@ def analyze_stock(symbol, tf):
         return None
 
 # ==============================================================================
-# İLETİŞİM MOTORU (GÜVENLİ MOD)
+# İLETİŞİM MOTORU (DEBUG MODLU)
 # ==============================================================================
 
 def get_gemini_summary(signals):
     """
-    Gemini ile özetlemeye çalışır. Hata olursa ham datayı formatlayıp döner.
+    Gemini çalışırsa yorum yapar, çalışmazsa HAM RAPORU düzgün formatlayıp döner.
+    AYRICA: Hata anında loglara hangi modellerin erişilebilir olduğunu yazar.
     """
-    # 1. Fallback (Yedek) Mesajı Hazırla
-    fallback_msg = "⚠️ *Gemini Bağlantı Hatası*\nAncak sinyaller şunlar:\n\n"
+    fallback_msg = "🤖 *OTOMATİK TEKNİK RAPOR*\n(Yapay Zeka Servisine Ulaşılamadı, Ham Veri Aşağıdadır)\n\n"
     for s in signals:
-        fallback_msg += f"🔥 *{s['symbol']}* ({s['tf']}) - ${s['price']}\n"
-        fallback_msg += f"   DEMA: {s['dema']} | ADX: {s['adx']} | {s['lb_status']}\n\n"
+        icon = "⚡" if "Cross" in s['lb_status'] else "🔥"
+        fallback_msg += f"{icon} *{s['symbol']}* ({s['tf']}) - ${s['price']}\n"
+        fallback_msg += f"   📊 DEMA: {s['dema']} | ADX: {s['adx']}\n"
+        fallback_msg += f"   🎯 {s['lb_status']}\n\n"
 
     if not GEMINI_API_KEY: 
-        return fallback_msg + "(API Key Eksik)"
+        return fallback_msg
     
     try:
         genai.configure(api_key=GEMINI_API_KEY)
-        # En güncel modeli kullanıyoruz
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Modeli seçiyoruz. Eğer kütüphane eskiyse burası patlayabilir.
+        model = genai.GenerativeModel('gemini-1.5-flash') 
         
         prompt = f"""
         Sen 'TrendHunter' adında borsa asistanısın. Kullanıcıya 'Başkan' de.
@@ -264,9 +267,17 @@ def get_gemini_summary(signals):
         return response.text
         
     except Exception as e:
-        print(f"Gemini Hatası: {e}")
-        # Hata olsa bile sinyalleri gönder!
-        return fallback_msg + f"\n(AI Hatası: {str(e)})"
+        print(f"Gemini Kritik Hata: {e}")
+        # Hata aldık, peki hangi modeller var? Loga yazalım ki bilelim.
+        try:
+            print("--- ERİŞİLEBİLİR MODELLER LİSTESİ ---")
+            for m in genai.list_models():
+                print(m.name)
+            print("-------------------------------------")
+        except:
+            print("Model listesi de alınamadı.")
+            
+        return fallback_msg
 
 def send_pushover(message):
     if not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
@@ -274,26 +285,35 @@ def send_pushover(message):
         return
 
     url = "https://api.pushover.net/1/messages.json"
-    # Mesaj çok uzunsa Pushover reddedebilir, o yüzden 1000 karaktere kırpıyoruz
-    safe_message = message[:1000] if message else "Boş Mesaj"
+    chunks = [message[i:i+1000] for i in range(0, len(message), 1000)]
     
-    payload = {
-        "token": PUSHOVER_API_TOKEN,
-        "user": PUSHOVER_USER_KEY,
-        "message": safe_message,
-        "title": "🚀 TREND HUNTER ALARM",
-        "sound": "cashregister", 
-        "priority": 1 
-    }
-    
-    try:
-        requests.post(url, data=payload)
-        print("✅ Pushover Bildirimi Gönderildi!")
-    except Exception as e:
-        print(f"Pushover Gönderim Hatası: {e}")
+    for i, chunk in enumerate(chunks):
+        title = "🚀 TREND HUNTER ALARM"
+        if len(chunks) > 1:
+            title += f" ({i+1}/{len(chunks)})"
+
+        payload = {
+            "token": PUSHOVER_API_TOKEN,
+            "user": PUSHOVER_USER_KEY,
+            "message": chunk,
+            "title": title,
+            "sound": "cashregister", 
+            "priority": 1 
+        }
+        
+        try:
+            requests.post(url, data=payload)
+            print(f"✅ Pushover Parça {i+1} Gönderildi!")
+            time.sleep(1) 
+        except Exception as e:
+            print(f"Pushover Gönderim Hatası: {e}")
 
 if __name__ == "__main__":
-    print("🚀 CLOUD HUNTER V5.1 (FAIL-SAFE) BAŞLATILIYOR...")
+    print("🚀 CLOUD HUNTER V6.1 (DEBUG MODE) BAŞLATILIYOR...")
+    
+    # Versiyonu kontrol edelim (Logda görmek için)
+    print(f"Google Generative AI Version: {genai.__version__}")
+
     all_signals = []
     
     for tf in WATCH_TIMEFRAMES:
