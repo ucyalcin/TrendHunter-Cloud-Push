@@ -226,34 +226,47 @@ def analyze_stock(symbol, tf):
         return None
 
 # ==============================================================================
-# İLETİŞİM MOTORU
+# İLETİŞİM MOTORU (GÜVENLİ MOD)
 # ==============================================================================
 
 def get_gemini_summary(signals):
-    if not GEMINI_API_KEY: return "Gemini API Key eksik."
-    
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    prompt = f"""
-    Sen 'TrendHunter' adında borsa asistanısın. Kullanıcıya 'Başkan' de.
-    Aşağıda yakalanan YENİ sinyaller var.
-    
-    Görevlerin:
-    1. Hisseleri gruplayarak listele.
-    2. Her hisse için: Fiyatın DEMA (200) seviyesine göre konumunu yorumla. 
-       (Fiyat > DEMA ise 'Güvenli Bölge', Fiyat < DEMA ise 'Riskli/Tepki' gibi).
-    3. LazyBear durumu 'LB Cross' ise momentumun da desteklediğini belirt.
-    4. Türkçe konuş, emojiler kullan.
-    
-    Sinyaller:
-    {signals}
     """
+    Gemini ile özetlemeye çalışır. Hata olursa ham datayı formatlayıp döner.
+    """
+    # 1. Fallback (Yedek) Mesajı Hazırla
+    fallback_msg = "⚠️ *Gemini Bağlantı Hatası*\nAncak sinyaller şunlar:\n\n"
+    for s in signals:
+        fallback_msg += f"🔥 *{s['symbol']}* ({s['tf']}) - ${s['price']}\n"
+        fallback_msg += f"   DEMA: {s['dema']} | ADX: {s['adx']} | {s['lb_status']}\n\n"
+
+    if not GEMINI_API_KEY: 
+        return fallback_msg + "(API Key Eksik)"
+    
     try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        # En güncel modeli kullanıyoruz
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"""
+        Sen 'TrendHunter' adında borsa asistanısın. Kullanıcıya 'Başkan' de.
+        Aşağıda yakalanan YENİ sinyaller var.
+        
+        Görevlerin:
+        1. Hisseleri gruplayarak listele.
+        2. Her hisse için: Fiyatın DEMA (200) seviyesine göre konumunu yorumla. 
+        3. LazyBear durumu 'LB Cross' ise momentumun da desteklediğini belirt.
+        4. Türkçe konuş, emojiler kullan.
+        
+        Sinyaller:
+        {signals}
+        """
         response = model.generate_content(prompt)
         return response.text
+        
     except Exception as e:
-        return f"Gemini Hatası: {e}"
+        print(f"Gemini Hatası: {e}")
+        # Hata olsa bile sinyalleri gönder!
+        return fallback_msg + f"\n(AI Hatası: {str(e)})"
 
 def send_pushover(message):
     if not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
@@ -261,10 +274,13 @@ def send_pushover(message):
         return
 
     url = "https://api.pushover.net/1/messages.json"
+    # Mesaj çok uzunsa Pushover reddedebilir, o yüzden 1000 karaktere kırpıyoruz
+    safe_message = message[:1000] if message else "Boş Mesaj"
+    
     payload = {
         "token": PUSHOVER_API_TOKEN,
         "user": PUSHOVER_USER_KEY,
-        "message": message,
+        "message": safe_message,
         "title": "🚀 TREND HUNTER ALARM",
         "sound": "cashregister", 
         "priority": 1 
@@ -277,7 +293,7 @@ def send_pushover(message):
         print(f"Pushover Gönderim Hatası: {e}")
 
 if __name__ == "__main__":
-    print("🚀 CLOUD HUNTER V5 BAŞLATILIYOR...")
+    print("🚀 CLOUD HUNTER V5.1 (FAIL-SAFE) BAŞLATILIYOR...")
     all_signals = []
     
     for tf in WATCH_TIMEFRAMES:
