@@ -2,7 +2,7 @@ name: TrendHunter Hourly Scan
 
 on:
   schedule:
-    # Her saatin 32. dakikasında çalış (Mumlar 30'da kapanır, 2 dk buffer yeterli)
+    # Her saatin 32. dakikasında çalış
     - cron: '32 * * * *'
   workflow_dispatch: # Manuel çalıştırma butonu
 
@@ -19,9 +19,9 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install dependencies
+      - name: Install dependencies (Manuel)
         run: |
-          pip install -r requirements.txt
+          pip install yfinance pandas numpy requests google-generativeai
 
       - name: Run Cloud Hunter V5
         env:
