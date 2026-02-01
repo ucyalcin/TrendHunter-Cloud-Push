@@ -19,12 +19,14 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install dependencies (FORCE VERSION)
-        # BURASI ÇOK ÖNEMLİ: Tırnak işaretlerine dikkat
+      - name: Install dependencies (NUCLEAR OPTION)
+        # --no-cache-dir: GitHub'ın eski dosyaları kullanmasını yasaklar.
+        # --upgrade: En son sürümü zorlar.
+        # python -m pip: Python'un doğru pip'ini kullandığımızı garanti eder.
         run: |
-          pip install "google-generativeai>=0.7.2" yfinance pandas numpy requests
+          python -m pip install --upgrade --no-cache-dir "google-generativeai>=0.7.2" yfinance pandas numpy requests
 
-      - name: Run Cloud Hunter V6
+      - name: Run Cloud Hunter V6.1
         env:
           PUSHOVER_USER_KEY: ${{ secrets.PUSHOVER_USER_KEY }}
           PUSHOVER_API_TOKEN: ${{ secrets.PUSHOVER_API_TOKEN }}
